@@ -23,6 +23,7 @@ export default function NodeNetworkBackground() {
     const ctx = context;
     let animationId = 0;
     let nodes: Node[] = [];
+    let tick = 0;
 
     function resize() {
       const parent = canvasEl.parentElement;
@@ -37,12 +38,12 @@ export default function NodeNetworkBackground() {
       canvasEl.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const count = Math.min(48, Math.floor((width * height) / 18000));
+      const count = Math.min(56, Math.floor((width * height) / 14000));
       nodes = Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.1,
-        vy: (Math.random() - 0.5) * 0.1,
+        vx: (Math.random() - 0.5) * 0.14,
+        vy: (Math.random() - 0.5) * 0.14,
       }));
     }
 
@@ -51,17 +52,18 @@ export default function NodeNetworkBackground() {
       if (!parent) return;
 
       const { width, height } = parent.getBoundingClientRect();
+      tick += 1;
       ctx.clearRect(0, 0, width, height);
 
       for (const node of nodes) {
         node.x += node.vx;
         node.y += node.vy;
-
         if (node.x < 0 || node.x > width) node.vx *= -1;
         if (node.y < 0 || node.y > height) node.vy *= -1;
       }
 
-      const maxDistance = 140;
+      const maxDistance = 150;
+      const pulse = 0.08 + Math.sin(tick * 0.012) * 0.03;
 
       for (let i = 0; i < nodes.length; i += 1) {
         for (let j = i + 1; j < nodes.length; j += 1) {
@@ -70,7 +72,7 @@ export default function NodeNetworkBackground() {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < maxDistance) {
-            const alpha = (1 - distance / maxDistance) * 0.1;
+            const alpha = (1 - distance / maxDistance) * pulse;
             ctx.strokeStyle = `rgba(99, 102, 241, ${alpha})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -82,9 +84,9 @@ export default function NodeNetworkBackground() {
       }
 
       for (const node of nodes) {
-        ctx.fillStyle = "rgba(56, 189, 248, 0.25)";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.35)";
         ctx.beginPath();
-        ctx.arc(node.x, node.y, 1.5, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, 1.6, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -93,7 +95,6 @@ export default function NodeNetworkBackground() {
 
     resize();
     draw();
-
     window.addEventListener("resize", resize);
 
     return () => {
@@ -105,7 +106,7 @@ export default function NodeNetworkBackground() {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none absolute inset-0 h-full w-full opacity-60"
+      className="pointer-events-none absolute inset-0 h-full w-full opacity-70"
       aria-hidden
     />
   );

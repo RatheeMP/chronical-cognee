@@ -1,8 +1,6 @@
 import re
 from typing import Any
 
-from app.integrations.cognee.client import CogneeClient
-
 STOP_WORDS = {
     "the",
     "and",
@@ -125,7 +123,7 @@ def _relevance_score(memory: dict[str, Any], question: str) -> float:
     cognee_score = memory.get("score")
     normalized_score = float(cognee_score) if isinstance(cognee_score, (int, float)) else 0.0
 
-    return (normalized_score * 0.4) + (overlap_ratio * 0.6)
+    return (normalized_score * 0.7) + (overlap_ratio * 0.3)
 
 
 def filter_relevant_memories(
@@ -190,10 +188,9 @@ def build_reasoning_chain(question: str, memories: list[dict[str, Any]]) -> dict
 
 
 async def build_explorer_chain(question: str) -> dict[str, Any]:
-    client = CogneeClient()
-    chunk_results = await client.recall(question, search_type="CHUNKS")
-    items = parse_memory_items(chunk_results)
-    relevant = filter_relevant_memories(items, question)
+    from app.services.chronicle_engine import retrieve_and_rank_memories
+
+    relevant = await retrieve_and_rank_memories(question)
     chain = build_reasoning_chain(question, relevant)
 
     return {
