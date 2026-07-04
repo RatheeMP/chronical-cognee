@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chronicle",
-  description: "Chronicle application",
+  title: "Chronicle — AI Decision Intelligence",
+  description:
+    "Remember the Past. Understand the Impact. Organizational memory powered by Cognee.",
 };
 
 export default function RootLayout({
@@ -27,7 +28,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col selection:bg-[rgb(99_102_241/0.25)] selection:text-white">
+        {children}
+      </body>
     </html>
   );
 }
