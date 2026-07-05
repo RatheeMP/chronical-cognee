@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -7,8 +8,10 @@ import {
   MessageSquare,
   Sparkles,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import DemoAskChronicle, { type AskExchange } from "@/components/guided/DemoAskChronicle";
+import ImpactAnalysisLoading from "@/components/guided/ImpactAnalysisLoading";
 import ChronicleAnswerView, {
   ChronicleEmptyFallback,
   ChronicleErrorFallback,
@@ -16,7 +19,6 @@ import ChronicleAnswerView, {
 import Card from "@/components/ui/Card";
 import LinkButton from "@/components/ui/LinkButton";
 import ResultSlot from "@/components/ui/ResultSlot";
-import { SkeletonCard } from "@/components/ui/Skeleton";
 import Spinner from "@/components/ui/Spinner";
 import type { ReasoningChain } from "@/lib/api";
 import { errorMessage, type StructuredAnswer } from "@/lib/chronicleReasoning";
@@ -25,6 +27,8 @@ import {
   novaTechEvidence,
   proposedDecision,
 } from "@/lib/novaTechDemo";
+
+const fadeEase = [0.22, 1, 0.36, 1] as const;
 
 type DemoCenterWorkspaceProps = {
   stepIndex: number;
@@ -245,6 +249,60 @@ function ImpactStep({
   errorType: "offline" | "timeout" | "unavailable" | null;
   onRetry: () => void;
 }) {
+  const [completedStages, setCompletedStages] = useState(0);
+  const [longWait, setLongWait] = useState(false);
+  const [showResults, setShowResults] = useState(() => Boolean(impactAnswer));
+  const wasLoadingRef = useRef(false);
+
+  useEffect(() => {
+    if (!loading) return;
+
+    wasLoadingRef.current = true;
+    setShowResults(false);
+    setLongWait(false);
+    setCompletedStages(1);
+
+    const stage2 = window.setTimeout(() => {
+      setCompletedStages((current) => Math.max(current, 2));
+    }, 2000);
+    const stage3 = window.setTimeout(() => {
+      setCompletedStages((current) => Math.max(current, 3));
+    }, 4500);
+    const longWaitTimer = window.setTimeout(() => setLongWait(true), 8000);
+
+    return () => {
+      window.clearTimeout(stage2);
+      window.clearTimeout(stage3);
+      window.clearTimeout(longWaitTimer);
+    };
+  }, [loading]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (impactAnswer && wasLoadingRef.current) {
+      setCompletedStages(4);
+      wasLoadingRef.current = false;
+      const revealTimer = window.setTimeout(() => setShowResults(true), 650);
+      return () => window.clearTimeout(revealTimer);
+    }
+
+    if (impactAnswer) {
+      setShowResults(true);
+      setCompletedStages(4);
+      return;
+    }
+
+    setShowResults(false);
+    if (!errorType && !empty) {
+      setCompletedStages(0);
+      setLongWait(false);
+    }
+  }, [loading, impactAnswer, errorType, empty]);
+
+  const showLoadingPanel =
+    loading || (Boolean(impactAnswer) && !showResults && !errorType && !empty);
+
   return (
     <div className="space-y-6">
       <Card className="surface-elevated p-5" glow>
@@ -262,27 +320,65 @@ function ImpactStep({
       </Card>
 
       <ResultSlot minHeight={120}>
-        {loading ? (
-          <div className="space-y-4">
-            <Spinner showChroni label="Analyzing decision impact" />
-            <SkeletonCard label="Analyzing decision impact" />
-          </div>
-        ) : errorType ? (
-          <ChronicleErrorFallback
-            message={errorMessage(errorType)}
-            onRetry={onRetry}
-          />
-        ) : empty ? (
-          <ChronicleEmptyFallback onRetry={onRetry} />
-        ) : impactAnswer ? (
-          <ChronicleAnswerView answer={impactAnswer} variant="workspace" />
-        ) : (
-          <Card className="p-5">
-            <p className="text-sm text-slate-400">
-              Impact analysis will load when you reach this step.
-            </p>
-          </Card>
-        )}
+        <AnimatePresence mode="wait">
+          {showLoadingPanel ? (
+            <motion.div
+              key="impact-loading"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.45, ease: fadeEase }}
+            >
+              <ImpactAnalysisLoading
+                completedStages={completedStages}
+                longWait={longWait}
+              />
+            </motion.div>
+          ) : errorType ? (
+            <motion.div
+              key="impact-error"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: fadeEase }}
+            >
+              <ChronicleErrorFallback
+                message={errorMessage(errorType)}
+                onRetry={onRetry}
+              />
+            </motion.div>
+          ) : empty ? (
+            <motion.div
+              key="impact-empty"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: fadeEase }}
+            >
+              <ChronicleEmptyFallback onRetry={onRetry} />
+            </motion.div>
+          ) : impactAnswer && showResults ? (
+            <motion.div
+              key="impact-result"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: fadeEase }}
+            >
+              <ChronicleAnswerView answer={impactAnswer} variant="workspace" />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="impact-idle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, ease: fadeEase }}
+            >
+              <Card className="p-5">
+                <p className="text-sm text-slate-400">
+                  Impact analysis will load when you reach this step.
+                </p>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </ResultSlot>
     </div>
   );
