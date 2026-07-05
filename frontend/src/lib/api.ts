@@ -18,12 +18,23 @@ export type RecallResult = {
   [key: string]: unknown;
 };
 
+export type ImpactPerformance = {
+  query_expansion_ms: number;
+  retrieval_ms: number;
+  ranking_ms: number;
+  context_build_ms: number;
+  graph_completion_ms: number;
+  parsing_ms: number;
+  total_ms: number;
+};
+
 export type ImpactResponse = {
   summary: string;
   supporting_memories: string[];
   reasoning: string;
   potential_impacts: string[];
   reasoning_chain: ReasoningChain;
+  performance?: ImpactPerformance;
 };
 
 export type ReasoningNode = {
@@ -109,10 +120,18 @@ export async function recallMemory(query: string): Promise<RecallResult[]> {
   return res.json();
 }
 
-export async function analyzeImpact(question: string): Promise<ImpactResponse> {
+export async function analyzeImpact(
+  question: string,
+  options?: { guidedDemo?: boolean },
+): Promise<ImpactResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (options?.guidedDemo) {
+    headers["X-Chronicle-Context"] = "guided-demo";
+  }
+
   const res = await fetch(`${API_BASE}/memory/impact`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ question }),
   });
 
@@ -121,7 +140,13 @@ export async function analyzeImpact(question: string): Promise<ImpactResponse> {
     throw new Error(detail || "Failed to analyze decision impact");
   }
 
-  return res.json();
+  const data = (await res.json()) as ImpactResponse;
+
+  if (process.env.NODE_ENV === "development" && data.performance) {
+    console.log("[Chronicle Performance]", data.performance);
+  }
+
+  return data;
 }
 
 export async function exploreReasoning(query: string): Promise<ExploreResponse> {

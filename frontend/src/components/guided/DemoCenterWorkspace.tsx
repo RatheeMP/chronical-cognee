@@ -249,13 +249,20 @@ function ImpactStep({
   errorType: "offline" | "timeout" | "unavailable" | null;
   onRetry: () => void;
 }) {
-  const [completedStages, setCompletedStages] = useState(0);
+  const [completedStages, setCompletedStages] = useState(() =>
+    impactAnswer ? 4 : 1,
+  );
   const [longWait, setLongWait] = useState(false);
   const [showResults, setShowResults] = useState(() => Boolean(impactAnswer));
-  const wasLoadingRef = useRef(false);
+  const wasLoadingRef = useRef(!impactAnswer);
+
+  const showResult = Boolean(impactAnswer && showResults);
+  const showError = Boolean(errorType);
+  const showEmpty = empty;
+  const showLoadingPanel = !showResult && !showError && !showEmpty;
 
   useEffect(() => {
-    if (!loading) return;
+    if (!showLoadingPanel || impactAnswer) return;
 
     wasLoadingRef.current = true;
     setShowResults(false);
@@ -275,7 +282,7 @@ function ImpactStep({
       window.clearTimeout(stage3);
       window.clearTimeout(longWaitTimer);
     };
-  }, [loading]);
+  }, [showLoadingPanel, impactAnswer, loading]);
 
   useEffect(() => {
     if (loading) return;
@@ -290,18 +297,8 @@ function ImpactStep({
     if (impactAnswer) {
       setShowResults(true);
       setCompletedStages(4);
-      return;
     }
-
-    setShowResults(false);
-    if (!errorType && !empty) {
-      setCompletedStages(0);
-      setLongWait(false);
-    }
-  }, [loading, impactAnswer, errorType, empty]);
-
-  const showLoadingPanel =
-    loading || (Boolean(impactAnswer) && !showResults && !errorType && !empty);
+  }, [loading, impactAnswer]);
 
   return (
     <div className="space-y-6">
@@ -321,20 +318,16 @@ function ImpactStep({
 
       <ResultSlot minHeight={120}>
         <AnimatePresence mode="wait">
-          {showLoadingPanel ? (
+          {showResult ? (
             <motion.div
-              key="impact-loading"
+              key="impact-result"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.45, ease: fadeEase }}
+              transition={{ duration: 0.55, ease: fadeEase }}
             >
-              <ImpactAnalysisLoading
-                completedStages={completedStages}
-                longWait={longWait}
-              />
+              <ChronicleAnswerView answer={impactAnswer!} variant="workspace" />
             </motion.div>
-          ) : errorType ? (
+          ) : showError ? (
             <motion.div
               key="impact-error"
               initial={{ opacity: 0, y: 10 }}
@@ -342,11 +335,11 @@ function ImpactStep({
               transition={{ duration: 0.5, ease: fadeEase }}
             >
               <ChronicleErrorFallback
-                message={errorMessage(errorType)}
+                message={errorMessage(errorType!)}
                 onRetry={onRetry}
               />
             </motion.div>
-          ) : empty ? (
+          ) : showEmpty ? (
             <motion.div
               key="impact-empty"
               initial={{ opacity: 0, y: 10 }}
@@ -355,27 +348,18 @@ function ImpactStep({
             >
               <ChronicleEmptyFallback onRetry={onRetry} />
             </motion.div>
-          ) : impactAnswer && showResults ? (
-            <motion.div
-              key="impact-result"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55, ease: fadeEase }}
-            >
-              <ChronicleAnswerView answer={impactAnswer} variant="workspace" />
-            </motion.div>
           ) : (
             <motion.div
-              key="impact-idle"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4, ease: fadeEase }}
+              key="impact-loading"
+              initial={{ opacity: 1, y: 0 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.45, ease: fadeEase }}
             >
-              <Card className="p-5">
-                <p className="text-sm text-slate-400">
-                  Impact analysis will load when you reach this step.
-                </p>
-              </Card>
+              <ImpactAnalysisLoading
+                completedStages={completedStages}
+                longWait={longWait}
+              />
             </motion.div>
           )}
         </AnimatePresence>

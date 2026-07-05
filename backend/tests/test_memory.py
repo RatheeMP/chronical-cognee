@@ -113,7 +113,34 @@ def test_impact_returns_structured_response(mock_impact):
     assert response.status_code == 200
     assert response.json() == impact_response
     mock_impact.assert_awaited_once_with(
-        "What happens if we restart Enterprise SSO today?"
+        "What happens if we restart Enterprise SSO today?",
+        guided_demo=False,
+    )
+
+
+@patch(
+    "app.api.memory.impact_service.analyze_impact",
+    new_callable=AsyncMock,
+)
+def test_impact_uses_guided_demo_retrieval_profile(mock_impact):
+    mock_impact.return_value = {
+        "summary": "Demo response",
+        "supporting_memories": [],
+        "reasoning": "",
+        "potential_impacts": [],
+        "reasoning_chain": {"nodes": [], "edges": []},
+    }
+
+    response = client.post(
+        "/memory/impact",
+        json={"question": "What happens if we restart Enterprise SSO today?"},
+        headers={"X-Chronicle-Context": "guided-demo"},
+    )
+
+    assert response.status_code == 200
+    mock_impact.assert_awaited_once_with(
+        "What happens if we restart Enterprise SSO today?",
+        guided_demo=True,
     )
 
 

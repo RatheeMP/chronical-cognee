@@ -89,10 +89,12 @@ export default function GuidedExperience() {
     setImpactAnswer(null);
     setImpactEmpty(false);
     setImpactErrorType(null);
+    setImpactLoading(false);
     setChain(null);
     setAskExchanges([]);
     impactFetched.current = false;
     chainFetched.current = false;
+    impactInFlight.current = false;
   }, []);
 
   const handleReplay = useCallback(() => {
@@ -107,7 +109,9 @@ export default function GuidedExperience() {
     setImpactEmpty(false);
     setImpactAnswer(null);
     try {
-      const result = await askChronicleQuestion(migrationImpactQuestion);
+      const result = await askChronicleQuestion(migrationImpactQuestion, {
+        guidedDemo: true,
+      });
 
       if (result.kind === "answer") {
         setImpactAnswer(result.structured);
@@ -159,6 +163,14 @@ export default function GuidedExperience() {
       void fetchChain();
     }
   }, [stepIndex, seeded, seeding, fetchChain]);
+
+  useEffect(() => {
+    if (stepIndex !== 2) return;
+    if (impactFetched.current && impactAnswer) return;
+    if (impactEmpty || impactErrorType) return;
+
+    setImpactLoading(true);
+  }, [stepIndex, impactAnswer, impactEmpty, impactErrorType]);
 
   useEffect(() => {
     if (stepIndex === 2 && seeded && !seeding) {
@@ -273,6 +285,10 @@ export default function GuidedExperience() {
           onRetryImpact={() => {
             impactFetched.current = false;
             impactInFlight.current = false;
+            setImpactLoading(true);
+            setImpactErrorType(null);
+            setImpactEmpty(false);
+            setImpactAnswer(null);
             void fetchImpact();
           }}
           onExplored={handleExplored}

@@ -205,7 +205,7 @@ export function errorMessage(errorType: AskChronicleError["errorType"]): string 
 /** Thin client adapter — all reasoning runs in the backend unified pipeline. */
 export async function askChronicleQuestion(
   question: string,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; guidedDemo?: boolean },
 ): Promise<AskChronicleResult> {
   const trimmed = question.trim();
   if (!trimmed) return { kind: "empty" };
@@ -213,7 +213,10 @@ export async function askChronicleQuestion(
   const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
 
   try {
-    const impact = await withTimeout(analyzeImpact(trimmed), timeoutMs);
+    const impact = await withTimeout(
+      analyzeImpact(trimmed, { guidedDemo: options?.guidedDemo }),
+      timeoutMs,
+    );
 
     if (isEmptyImpact(impact)) {
       return { kind: "empty" };

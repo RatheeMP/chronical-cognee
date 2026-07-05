@@ -1,6 +1,9 @@
 import re
+import time
+from dataclasses import dataclass
 from typing import Any
 
+from app.config.settings import settings
 from app.integrations.cognee.client import CogneeClient
 from app.services.reasoning_service import (
     build_reasoning_chain,
@@ -141,6 +144,54 @@ DOMAIN_EXPANSIONS: list[tuple[re.Pattern[str], list[str]]] = [
 RETRIEVAL_TOP_K = 15
 RANKED_EVIDENCE_LIMIT = 8
 MAX_RETRIEVAL_PASSES = 8
+
+
+@dataclass(frozen=True)
+class RetrievalProfile:
+    max_passes: int
+    sufficient_candidates: int
+    candidate_cap: int
+
+
+RETRIEVAL_PROFILE_FULL = RetrievalProfile(
+    max_passes=MAX_RETRIEVAL_PASSES,
+    sufficient_candidates=RETRIEVAL_TOP_K,
+    candidate_cap=RETRIEVAL_TOP_K,
+)
+RETRIEVAL_PROFILE_DEMO = RetrievalProfile(
+    max_passes=2,
+    sufficient_candidates=6,
+    candidate_cap=RANKED_EVIDENCE_LIMIT,
+)
+
+
+def _empty_timings() -> dict[str, float]:
+    return {
+        "query_expansion": 0.0,
+        "retrieval_ms": 0.0,
+        "ranking": 0.0,
+        "context_build": 0.0,
+        "graph_completion": 0.0,
+        "parsing": 0.0,
+        "total": 0.0,
+    }
+
+
+def _build_performance(timings: dict[str, float]) -> dict[str, int]:
+    return {
+        "query_expansion_ms": int(round(timings["query_expansion"])),
+        "retrieval_ms": int(round(timings["retrieval_ms"])),
+        "ranking_ms": int(round(timings["ranking"])),
+        "context_build_ms": int(round(timings["context_build"])),
+        "graph_completion_ms": int(round(timings["graph_completion"])),
+        "parsing_ms": int(round(timings["parsing"])),
+        "total_ms": int(round(timings["total"])),
+    }
+
+
+def _attach_performance(result: dict[str, Any], timings: dict[str, float]) -> None:
+    if settings.environment == "development":
+        result["performance"] = _build_performance(timings)
 
 
 def _tokenize(text: str) -> set[str]:
@@ -330,35 +381,66 @@ def _fallback_from_evidence(
     }
 
 
-async def retrieve_and_rank_memories(question: str) -> list[dict[str, Any]]:
+async def retrieve_and_rank_memories(
+    question: str,
+    *,
+    retrieval_profile: RetrievalProfile = RETRIEVAL_PROFILE_FULL,
+    _timings: dict[str, float] | None = None,
+) -> list[dict[str, Any]]:
     client = CogneeClient()
     candidates: list[dict[str, Any]] = []
     seen: set[str] = set()
 
-    for query in expand_retrieval_queries(question):
+    expand_start = time.perf_counter()
+    queries = expand_retrieval_queries(question)[: retrieval_profile.max_passes]
+    if _timings is not None:
+        _timings["query_expansion"] = (time.perf_counter() - expand_start) * 1000
+
+    for query in queries:
+        recall_start = time.perf_counter()
         chunk_results = await client.recall(query, search_type="CHUNKS")
+        if _timings is not None:
+            _timings["retrieval_ms"] += (time.perf_counter() - recall_start) * 1000
+
+        dedup_start = time.perf_counter()
         for item in parse_memory_items(chunk_results):
             content = item["content"]
             if content in seen:
                 continue
             seen.add(content)
             candidates.append(item)
-            if len(candidates) >= RETRIEVAL_TOP_K:
+            if len(candidates) >= retrieval_profile.candidate_cap:
                 break
-        if len(candidates) >= RETRIEVAL_TOP_K:
+        if _timings is not None:
+            _timings["retrieval_ms"] += (time.perf_counter() - dedup_start) * 1000
+
+        if len(candidates) >= retrieval_profile.sufficient_candidates:
             break
 
-    return filter_relevant_memories(
+    rank_start = time.perf_counter()
+    ranked = filter_relevant_memories(
         candidates,
         question,
         max_items=RANKED_EVIDENCE_LIMIT,
     )
+    if _timings is not None:
+        _timings["ranking"] = (time.perf_counter() - rank_start) * 1000
+
+    return ranked
 
 
-async def run_reasoning_pipeline(question: str) -> dict[str, Any]:
+async def run_reasoning_pipeline(
+    question: str,
+    *,
+    guided_demo: bool = False,
+) -> dict[str, Any]:
+    total_start = time.perf_counter()
+    timings = _empty_timings()
+
     trimmed = question.strip()
     if not trimmed:
-        return {
+        timings["total"] = (time.perf_counter() - total_start) * 1000
+        result = {
             "answer": EMPTY_ANSWER,
             "reasoning": "",
             "recommendation": "",
@@ -367,12 +449,20 @@ async def run_reasoning_pipeline(question: str) -> dict[str, Any]:
             "supporting_memories": [],
             "reasoning_chain": {"nodes": [], "edges": []},
         }
+        _attach_performance(result, timings)
+        return result
 
-    memories = await retrieve_and_rank_memories(trimmed)
+    retrieval_profile = RETRIEVAL_PROFILE_DEMO if guided_demo else RETRIEVAL_PROFILE_FULL
+    memories = await retrieve_and_rank_memories(
+        trimmed,
+        retrieval_profile=retrieval_profile,
+        _timings=timings,
+    )
     reasoning_chain = build_reasoning_chain(trimmed, memories)
 
     if not memories:
-        return {
+        timings["total"] = (time.perf_counter() - total_start) * 1000
+        result = {
             "answer": EMPTY_ANSWER,
             "reasoning": "",
             "recommendation": "",
@@ -381,19 +471,29 @@ async def run_reasoning_pipeline(question: str) -> dict[str, Any]:
             "supporting_memories": [],
             "reasoning_chain": reasoning_chain,
         }
+        _attach_performance(result, timings)
+        return result
 
+    context_start = time.perf_counter()
     evidence_context = _build_evidence_context(memories)
     system_prompt = _build_reasoning_prompt(trimmed, evidence_context)
+    timings["context_build"] = (time.perf_counter() - context_start) * 1000
     client = CogneeClient()
 
+    graph_start = time.perf_counter()
     try:
         completion = await client.recall(
             trimmed,
             search_type="GRAPH_COMPLETION",
             system_prompt=system_prompt,
         )
+        timings["graph_completion"] = (time.perf_counter() - graph_start) * 1000
+
+        parse_start = time.perf_counter()
         parsed = _parse_reasoning_completion(_extract_completion_text(completion))
+        timings["parsing"] = (time.perf_counter() - parse_start) * 1000
     except Exception:
+        timings["graph_completion"] = (time.perf_counter() - graph_start) * 1000
         parsed = _fallback_from_evidence(trimmed, memories)
 
     if not parsed["answer"]:
@@ -405,7 +505,9 @@ async def run_reasoning_pipeline(question: str) -> dict[str, Any]:
         fallback = _fallback_from_evidence(trimmed, memories)
         parsed["reasoning"] = fallback["reasoning"]
 
-    return {
+    timings["total"] = (time.perf_counter() - total_start) * 1000
+
+    result = {
         "answer": parsed["answer"],
         "reasoning": parsed["reasoning"],
         "recommendation": parsed["recommendation"],
@@ -414,13 +516,15 @@ async def run_reasoning_pipeline(question: str) -> dict[str, Any]:
         "supporting_memories": [memory["content"] for memory in memories],
         "reasoning_chain": reasoning_chain,
     }
+    _attach_performance(result, timings)
+    return result
 
 
 def to_impact_response(result: dict[str, Any]) -> dict[str, Any]:
     recommendation = result.get("recommendation") or ""
     potential_impacts = [recommendation] if recommendation else []
 
-    return {
+    response: dict[str, Any] = {
         "summary": result.get("answer") or EMPTY_ANSWER,
         "supporting_memories": result.get("supporting_memories") or [],
         "reasoning": result.get("reasoning") or "",
@@ -428,3 +532,9 @@ def to_impact_response(result: dict[str, Any]) -> dict[str, Any]:
         "reasoning_chain": result.get("reasoning_chain")
         or {"nodes": [], "edges": []},
     }
+
+    performance = result.get("performance")
+    if performance is not None:
+        response["performance"] = performance
+
+    return response

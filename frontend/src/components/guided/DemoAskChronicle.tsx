@@ -69,7 +69,7 @@ export default function DemoAskChronicle({
           return;
         }
 
-        const result = await askChronicleQuestion(trimmed);
+        const result = await askChronicleQuestion(trimmed, { guidedDemo: true });
 
         if (result.kind === "answer") {
           onExchange({

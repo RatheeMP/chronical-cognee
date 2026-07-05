@@ -1,7 +1,7 @@
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.models.memory import (
     ForgetRequest,
@@ -75,9 +75,13 @@ async def forget_memory_item(request: ForgetRequest) -> Any:
 
 
 @router.post("/impact")
-async def decision_impact(request: ImpactRequest) -> Any:
+async def decision_impact(request: ImpactRequest, http_request: Request) -> Any:
+    guided_demo = http_request.headers.get("X-Chronicle-Context") == "guided-demo"
     try:
-        return await impact_service.analyze_impact(request.question)
+        return await impact_service.analyze_impact(
+            request.question,
+            guided_demo=guided_demo,
+        )
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,
