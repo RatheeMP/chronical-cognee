@@ -19,6 +19,7 @@ import {
   validateRecallRequest,
   validateRememberRequest,
 } from "@/lib/api/validators";
+import { withTransientRetry } from "@/lib/api/retry";
 
 export async function fetchHealth(): Promise<HealthResponse> {
   return apiRequest<HealthResponse>("/health", { cache: "no-store" });
@@ -32,20 +33,28 @@ export async function rememberMemory(text: string): Promise<RememberResponse> {
 }
 
 export async function recallMemory(query: string): Promise<RecallResult[]> {
-  return apiRequest<RecallResult[]>("/memory/recall", {
-    method: "POST",
-    body: validateRecallRequest(query),
-  });
+  return withTransientRetry(
+    () =>
+      apiRequest<RecallResult[]>("/memory/recall", {
+        method: "POST",
+        body: validateRecallRequest(query),
+      }),
+    { path: "/memory/recall" },
+  );
 }
 
 export async function analyzeImpact(
   question: string,
   context: ChronicleRequestContext = WORKSPACE_CONTEXT,
 ): Promise<ImpactResponse> {
-  const data = await apiRequest<ImpactResponse>("/memory/impact", {
-    method: "POST",
-    body: validateImpactRequest(question, context),
-  });
+  const data = await withTransientRetry(
+    () =>
+      apiRequest<ImpactResponse>("/memory/impact", {
+        method: "POST",
+        body: validateImpactRequest(question, context),
+      }),
+    { path: "/memory/impact" },
+  );
 
   if (process.env.NODE_ENV === "development" && data.performance) {
     console.log("[Chronicle Performance]", data.performance);
@@ -65,6 +74,8 @@ export async function analyzeImpactWithTimeout(
     method: "POST",
     body: validateImpactRequest(question, options.context ?? WORKSPACE_CONTEXT),
     timeoutMs: options.timeoutMs,
+    retryTransient: true,
+    retryPath: "/memory/impact",
   });
 
   if (process.env.NODE_ENV === "development" && data.performance) {

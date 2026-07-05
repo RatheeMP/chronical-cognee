@@ -32,6 +32,7 @@ export type AskExchange = {
   structured?: StructuredAnswer;
   plainAnswer?: string;
   errorType?: "offline" | "timeout" | "unavailable";
+  errorMessage?: string;
   empty?: boolean;
 };
 
@@ -96,6 +97,7 @@ export default function DemoAskChronicle({
             id: `${Date.now()}`,
             question: trimmed,
             errorType: result.errorType,
+            errorMessage: result.message,
           });
           setQuestion("");
         }
@@ -146,7 +148,7 @@ export default function DemoAskChronicle({
                   <ChronicleEmptyFallback />
                 ) : item.errorType ? (
                   <ChronicleErrorFallback
-                    message={errorMessage(item.errorType)}
+                    message={errorMessage(item.errorType, item.errorMessage)}
                     onRetry={() => void runAsk(item.question)}
                   />
                 ) : null}

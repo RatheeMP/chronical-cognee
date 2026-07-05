@@ -3,6 +3,7 @@ import {
   GUIDED_DEMO_CONTEXT,
   WORKSPACE_CONTEXT,
   isChronicleApiError,
+  type ChronicleApiError,
   type ChronicleRequestContext,
   type ImpactResponse,
   type ReasoningChain,
@@ -179,37 +180,78 @@ export function errorMessage(
 
   switch (errorType) {
     case "offline":
+      return "Organizational memory is temporarily unavailable. Please try again shortly.";
     case "unavailable":
-      return "Chronicle is temporarily unable to reach organizational memory.";
+      return "Chronicle could not complete this request. Please try again.";
     case "timeout":
-      return "I'm still reasoning over the available memories.";
+      return "Chronicle is still processing your question. Please try again in a moment.";
     default:
-      return "Chronicle is temporarily unable to reach organizational memory.";
+      return "Chronicle could not complete this request. Please try again.";
   }
+}
+
+function userFacingErrorMessage(err: ChronicleApiError): string {
+  if (err.code === "TIMEOUT") {
+    return "Chronicle is still processing your question. Please try again in a moment.";
+  }
+  if (err.code === "NETWORK_ERROR") {
+    return "Unable to reach Chronicle. Check your connection and try again.";
+  }
+  if (err.code === "UPSTREAM_ERROR" || err.status === 502 || err.status === 503 || err.status === 504) {
+    const detail = err.detail?.trim() || err.message.trim();
+    if (detail && !/^failed to analyze decision impact$/i.test(detail)) {
+      return `Organizational memory is temporarily unavailable: ${detail}`;
+    }
+    return "Organizational memory is temporarily unavailable after multiple attempts. Please try again shortly.";
+  }
+  if (err.message.trim()) {
+    return err.message.trim();
+  }
+  return "Chronicle could not complete this request. Please try again.";
 }
 
 function classifyApiError(err: unknown): AskChronicleError {
   if (isChronicleApiError(err)) {
     if (err.code === "TIMEOUT") {
-      return { kind: "error", errorType: "timeout", message: err.message };
+      return {
+        kind: "error",
+        errorType: "timeout",
+        message: userFacingErrorMessage(err),
+      };
     }
     if (err.code === "NETWORK_ERROR") {
-      return { kind: "error", errorType: "offline", message: err.message };
+      return {
+        kind: "error",
+        errorType: "offline",
+        message: userFacingErrorMessage(err),
+      };
     }
-    if (err.code === "UPSTREAM_ERROR" || err.status === 502 || err.status === 503) {
-      return { kind: "error", errorType: "offline", message: err.message };
+    if (err.code === "UPSTREAM_ERROR" || err.status === 502 || err.status === 503 || err.status === 504) {
+      return {
+        kind: "error",
+        errorType: "offline",
+        message: userFacingErrorMessage(err),
+      };
     }
-    return { kind: "error", errorType: "unavailable", message: err.message };
+    return {
+      kind: "error",
+      errorType: "unavailable",
+      message: userFacingErrorMessage(err),
+    };
   }
 
   if (err instanceof Error && /timeout/i.test(err.message)) {
-    return { kind: "error", errorType: "timeout", message: err.message };
+    return {
+      kind: "error",
+      errorType: "timeout",
+      message: errorMessage("timeout"),
+    };
   }
 
   return {
     kind: "error",
     errorType: "unavailable",
-    message: err instanceof Error ? err.message : undefined,
+    message: err instanceof Error ? err.message : errorMessage("unavailable"),
   };
 }
 

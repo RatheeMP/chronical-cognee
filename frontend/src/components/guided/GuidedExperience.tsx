@@ -21,10 +21,9 @@ import ChroniAvatar from "@/components/chroni/ChroniAvatar";
 import Button from "@/components/ui/Button";
 import {
   exploreReasoning,
-  improveMemory,
-  rememberMemory,
   type ReasoningChain,
 } from "@/lib/api";
+import { ensureNovaTechSeededOnce, isNovaTechSeededInSession } from "@/lib/guidedDemoSeed";
 import {
   askChronicleQuestion,
   GUIDED_DEMO_CONTEXT,
@@ -34,20 +33,8 @@ import {
   DEMO_STEPS,
   demoFooterCopy,
   migrationImpactQuestion,
-  novaTechMemoriesToSeed,
   NOVA_TECH,
 } from "@/lib/novaTechDemo";
-
-async function seedNovaTechMemories(): Promise<void> {
-  for (const memory of novaTechMemoriesToSeed) {
-    await rememberMemory(memory.memoryText);
-  }
-  try {
-    await improveMemory("main_dataset");
-  } catch {
-    // Improve is best-effort for demo seeding.
-  }
-}
 
 export default function GuidedExperience() {
   const [stepIndex, setStepIndex] = useState(0);
@@ -60,6 +47,7 @@ export default function GuidedExperience() {
   const [impactErrorType, setImpactErrorType] = useState<
     "offline" | "timeout" | "unavailable" | null
   >(null);
+  const [impactErrorDetail, setImpactErrorDetail] = useState<string | null>(null);
 
   const [chain, setChain] = useState<ReasoningChain | null>(null);
   const [chainLoading, setChainLoading] = useState(false);
@@ -73,10 +61,16 @@ export default function GuidedExperience() {
   const chainInFlight = useRef(false);
 
   const runSeed = useCallback(async () => {
+    if (isNovaTechSeededInSession()) {
+      setSeeded(true);
+      setSeeding(false);
+      return;
+    }
+
     setSeeding(true);
     setSeeded(false);
     try {
-      await seedNovaTechMemories();
+      await ensureNovaTechSeededOnce();
       setSeeded(true);
     } catch {
       setSeeded(false);
@@ -90,6 +84,7 @@ export default function GuidedExperience() {
     setImpactAnswer(null);
     setImpactEmpty(false);
     setImpactErrorType(null);
+    setImpactErrorDetail(null);
     setImpactLoading(false);
     setChain(null);
     setAskExchanges([]);
@@ -107,6 +102,7 @@ export default function GuidedExperience() {
     impactInFlight.current = true;
     setImpactLoading(true);
     setImpactErrorType(null);
+    setImpactErrorDetail(null);
     setImpactEmpty(false);
     setImpactAnswer(null);
     try {
@@ -116,18 +112,24 @@ export default function GuidedExperience() {
 
       if (result.kind === "answer") {
         setImpactAnswer(result.structured);
+        setImpactErrorType(null);
+        setImpactErrorDetail(null);
         if (result.structured.chain.nodes.length > 0) {
           setChain(result.structured.chain);
         }
         impactFetched.current = true;
       } else if (result.kind === "empty") {
         setImpactEmpty(true);
+        setImpactErrorType(null);
+        setImpactErrorDetail(null);
         impactFetched.current = true;
       } else {
         setImpactErrorType(result.errorType);
+        setImpactErrorDetail(result.message ?? null);
       }
     } catch {
       setImpactErrorType("unavailable");
+      setImpactErrorDetail(null);
     } finally {
       impactInFlight.current = false;
       setImpactLoading(false);
@@ -174,10 +176,10 @@ export default function GuidedExperience() {
   }, [stepIndex, impactAnswer, impactEmpty, impactErrorType]);
 
   useEffect(() => {
-    if (stepIndex === 2 && seeded && !seeding) {
+    if (stepIndex === 2) {
       void fetchImpact();
     }
-  }, [stepIndex, seeded, seeding, fetchImpact]);
+  }, [stepIndex, fetchImpact]);
 
   function handlePrev() {
     setStepIndex((i) => Math.max(i - 1, 0));
@@ -281,6 +283,7 @@ export default function GuidedExperience() {
           impactLoading={impactLoading}
           impactEmpty={impactEmpty}
           impactErrorType={impactErrorType}
+          impactErrorDetail={impactErrorDetail}
           chain={chain}
           chainLoading={chainLoading}
           onRetryImpact={() => {
@@ -288,6 +291,7 @@ export default function GuidedExperience() {
             impactInFlight.current = false;
             setImpactLoading(true);
             setImpactErrorType(null);
+            setImpactErrorDetail(null);
             setImpactEmpty(false);
             setImpactAnswer(null);
             void fetchImpact();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MessageSquare, Search } from "lucide-react";
 
 import Button from "@/components/ui/Button";
@@ -38,15 +38,19 @@ export default function AskChronicle({
   const [errorType, setErrorType] = useState<
     "offline" | "timeout" | "unavailable" | null
   >(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [answer, setAnswer] = useState<StructuredAnswer | null>(null);
   const [empty, setEmpty] = useState(false);
   const [lastQuestion, setLastQuestion] = useState("");
+  const inFlightRef = useRef(false);
 
   async function runAsk(trimmed: string) {
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || inFlightRef.current) return;
 
+    inFlightRef.current = true;
     setLoading(true);
     setErrorType(null);
+    setErrorDetail(null);
     setAnswer(null);
     setEmpty(false);
     setLastQuestion(trimmed);
@@ -56,17 +60,24 @@ export default function AskChronicle({
 
       if (result.kind === "answer") {
         setAnswer(result.structured);
+        setErrorType(null);
+        setErrorDetail(null);
         if (result.structured.chain.nodes.length > 0) {
           onExplored?.(result.structured.chain);
         }
       } else if (result.kind === "empty") {
         setEmpty(true);
+        setErrorType(null);
+        setErrorDetail(null);
       } else {
         setErrorType(result.errorType);
+        setErrorDetail(result.message ?? null);
       }
     } catch {
       setErrorType("unavailable");
+      setErrorDetail(null);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }
@@ -130,7 +141,7 @@ export default function AskChronicle({
             </div>
           ) : errorType ? (
             <ChronicleErrorFallback
-              message={errorMessage(errorType)}
+              message={errorMessage(errorType, errorDetail ?? undefined)}
               onRetry={() => void runAsk(lastQuestion)}
             />
           ) : empty ? (

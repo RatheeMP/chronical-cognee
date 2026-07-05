@@ -36,6 +36,7 @@ type DemoCenterWorkspaceProps = {
   impactLoading: boolean;
   impactEmpty: boolean;
   impactErrorType: "offline" | "timeout" | "unavailable" | null;
+  impactErrorDetail?: string | null;
   chain: ReasoningChain | null;
   chainLoading: boolean;
   onRetryImpact: () => void;
@@ -51,6 +52,7 @@ export default function DemoCenterWorkspace({
   impactLoading,
   impactEmpty,
   impactErrorType,
+  impactErrorDetail,
   chain,
   chainLoading,
   onRetryImpact,
@@ -81,6 +83,7 @@ export default function DemoCenterWorkspace({
           loading={impactLoading}
           empty={impactEmpty}
           errorType={impactErrorType}
+          errorDetail={impactErrorDetail}
           onRetry={onRetryImpact}
         />
       )}
@@ -241,12 +244,14 @@ function ImpactStep({
   loading,
   empty,
   errorType,
+  errorDetail,
   onRetry,
 }: {
   impactAnswer: StructuredAnswer | null;
   loading: boolean;
   empty: boolean;
   errorType: "offline" | "timeout" | "unavailable" | null;
+  errorDetail?: string | null;
   onRetry: () => void;
 }) {
   const [completedStages, setCompletedStages] = useState(() =>
@@ -335,7 +340,7 @@ function ImpactStep({
               transition={{ duration: 0.5, ease: fadeEase }}
             >
               <ChronicleErrorFallback
-                message={errorMessage(errorType!)}
+                message={errorMessage(errorType!, errorDetail ?? undefined)}
                 onRetry={onRetry}
               />
             </motion.div>

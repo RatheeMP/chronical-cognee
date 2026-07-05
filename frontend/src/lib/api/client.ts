@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from "@/lib/api/config";
 import { ChronicleApiError } from "@/lib/api/errors";
+import { withTransientRetry } from "@/lib/api/retry";
 import { mapFetchError } from "@/lib/api/validators";
 
 type HttpMethod = "GET" | "POST";
@@ -8,6 +9,9 @@ type JsonRequestOptions = {
   method?: HttpMethod;
   body?: unknown;
   cache?: RequestCache;
+  retryTransient?: boolean;
+  retryPath?: string;
+  onRetry?: (attempt: number, error: unknown) => void;
 };
 
 /**
@@ -51,22 +55,39 @@ export async function apiRequestWithTimeout<T>(
   path: string,
   options: JsonRequestOptions & { timeoutMs: number },
 ): Promise<T> {
-  const { timeoutMs, ...requestOptions } = options;
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const { timeoutMs, retryTransient = false, retryPath, onRetry, ...requestOptions } = options;
+  const deadline = Date.now() + timeoutMs;
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(
-      () => reject(ChronicleApiError.timeout()),
-      timeoutMs,
-    );
-  });
+  const runAttempt = async (): Promise<T> => {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      throw ChronicleApiError.timeout();
+    }
 
-  try {
-    return await Promise.race([
-      apiRequest<T>(path, requestOptions),
-      timeoutPromise,
-    ]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(ChronicleApiError.timeout()),
+        remaining,
+      );
+    });
+
+    try {
+      return await Promise.race([
+        apiRequest<T>(path, requestOptions),
+        timeoutPromise,
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+
+  if (!retryTransient) {
+    return runAttempt();
   }
+
+  return withTransientRetry(runAttempt, {
+    path: retryPath ?? path,
+    onRetry,
+  });
 }

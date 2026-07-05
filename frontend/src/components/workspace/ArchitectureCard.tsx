@@ -44,6 +44,13 @@ export default function ArchitectureCard() {
           The reasoning engine demonstrated here is the same engine designed to
           power future event-driven integrations.
         </p>
+
+        <p className="mx-auto mt-5 max-w-[34rem] text-center text-base font-medium leading-relaxed tracking-tight text-slate-100 sm:text-[17px]">
+          As Cognee&apos;s future integrations become available, Chronicle evolves
+          from manually imported organizational memory into a fully automated,
+          event-driven Decision Intelligence engine powered by GitHub, Slack,
+          Jira, and enterprise knowledge sources.
+        </p>
       </Card>
     </MotionDiv>
   );

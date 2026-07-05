@@ -8,6 +8,7 @@ import MemoryImportPanel from "@/components/workspace/MemoryImportPanel";
 import MemorySummary from "@/components/workspace/MemorySummary";
 import WorkspaceWelcome from "@/components/workspace/WorkspaceWelcome";
 import { importMemoryTexts } from "@/lib/workspaceMemoryImport";
+import { markNovaTechSeededInSession } from "@/lib/guidedDemoSeed";
 import {
   NOVATECH_DATASET_DISPLAY_NAME,
   NOVATECH_SAMPLE_MEMORIES,
@@ -29,6 +30,7 @@ export default function ChronicleDashboard() {
         const { items } = await importMemoryTexts(NOVATECH_SAMPLE_MEMORIES);
         if (items.length > 0) {
           setMemories(items);
+          markNovaTechSeededInSession();
         }
       } finally {
         setPreloadLoading(false);
