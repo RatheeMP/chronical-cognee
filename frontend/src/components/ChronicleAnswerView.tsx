@@ -75,7 +75,7 @@ function EvidenceSourceItem({
         type="button"
         onClick={() => setExpanded((open) => !open)}
         aria-expanded={expanded}
-        className="surface-interactive w-full rounded-[var(--radius-md)] px-4 py-3 text-left transition-shadow duration-300 hover:shadow-[0_0_20px_rgb(99_102_241/0.08)]"
+        className="surface-interactive focus-ring w-full rounded-[var(--radius-md)] px-4 py-3 text-left transition-shadow duration-300 hover:shadow-[0_0_20px_rgb(99_102_241/0.1)]"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-slate-200">{source.title}</span>
@@ -183,17 +183,15 @@ export default function ChronicleAnswerView({
   return (
     <MotionDiv {...fadeInUp} transition={transition}>
       <Card
-        className="surface-elevated border-[rgb(99_102_241/0.2)] p-6 glow-subtle"
+        className="surface-elevated border-[rgb(99_102_241/0.22)] p-6 sm:p-7 glow-subtle"
         glow
       >
         <span className="badge badge-cyan">Chronicle</span>
 
-        <div className="mt-4 space-y-5">
+        <div className="mt-5 space-y-0">
           {isWorkspace && answer.confidence && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Confidence
-              </span>
+            <div className="response-section flex items-center gap-2.5 pb-1">
+              <span className="response-label">Confidence</span>
               <span
                 className={`badge text-[10px] ${
                   answer.confidence === "high"
@@ -208,20 +206,14 @@ export default function ChronicleAnswerView({
             </div>
           )}
 
-          <section>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              {answerLabel}
-            </p>
-            <p className="mt-2 text-base leading-relaxed text-slate-100">
-              {answer.summary}
-            </p>
+          <section className="response-section">
+            <p className="response-label">{answerLabel}</p>
+            <p className="response-body-primary mt-2.5">{answer.summary}</p>
           </section>
 
           {answer.evidence.length > 0 && (
-            <section>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Supporting evidence
-              </p>
+            <section className="response-section">
+              <p className="response-label">Supporting evidence</p>
               <ul className="mt-3 space-y-2">
                 {answer.evidence.map((source) => (
                   <EvidenceSourceItem key={source.id} source={source} />
@@ -231,35 +223,27 @@ export default function ChronicleAnswerView({
           )}
 
           {answer.reasoning && (
-            <section>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Reasoning
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                {answer.reasoning}
-              </p>
+            <section className="response-section">
+              <p className="response-label">Reasoning</p>
+              <p className="response-body mt-2.5">{answer.reasoning}</p>
             </section>
           )}
 
           {answer.recommendation && (
-            <section className="rounded-[var(--radius-md)] border border-[rgb(99_102_241/0.15)] bg-[rgb(99_102_241/0.06)] px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Recommendation
-              </p>
-              <p className="mt-2 text-sm font-medium leading-relaxed text-slate-200">
+            <section className="response-section rounded-[var(--radius-md)] border border-[rgb(99_102_241/0.18)] bg-[rgb(99_102_241/0.07)] px-4 py-3.5">
+              <p className="response-label">Recommendation</p>
+              <p className="response-body mt-2.5 font-medium text-slate-100">
                 {answer.recommendation}
               </p>
             </section>
           )}
 
           {isWorkspace && consequences.length > 0 && (
-            <section>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Potential Future Consequences
-              </p>
+            <section className="response-section">
+              <p className="response-label">Potential Future Consequences</p>
               <ul className="mt-3 space-y-2">
                 {consequences.map((item, index) => (
-                  <li key={index} className="memory-chip text-sm text-slate-300">
+                  <li key={index} className="memory-chip text-sm">
                     {item}
                   </li>
                 ))}
@@ -271,7 +255,7 @@ export default function ChronicleAnswerView({
         <button
           type="button"
           onClick={() => setShowReasoning((open) => !open)}
-          className="mt-5 inline-flex items-center gap-2 text-sm text-[#818CF8] transition-colors hover:text-[#A5B4FC]"
+          className="focus-ring mt-5 inline-flex items-center gap-2 rounded-[var(--radius-sm)] px-1 py-0.5 text-sm text-[#818CF8] transition-colors hover:text-[#A5B4FC]"
         >
           <GitBranch className="h-4 w-4" aria-hidden />
           {graphLabel}

@@ -51,18 +51,20 @@ function SectionFade({ from, to }: { from: string; to: string }) {
   );
 }
 
-const traditionalAI = [
-  "General knowledge",
-  "Generic answers",
-  "No access to your team's reasoning",
-  "No record of past trade-offs",
+const withoutChronicle = [
+  "Teams search Slack, Jira and documents",
+  "Context is fragmented",
+  "Decisions are repeated",
+  "Trade-offs are forgotten",
+  "Future decisions rely on memory",
 ];
 
-const chronicle = [
-  "Your organization's reasoning",
-  "Past trade-offs worth revisiting",
-  "Supporting evidence from prior decisions",
-  "Consequences your team may have overlooked",
+const withChronicle = [
+  "Organizational history is connected",
+  "Past trade-offs are surfaced instantly",
+  "Evidence is retrieved automatically",
+  "Risks are explained before decisions are made",
+  "Future decisions are grounded in organizational reasoning",
 ];
 
 const roadmapCurrent = [
@@ -189,8 +191,11 @@ export default function LandingPage() {
             <div>
               <SectionLabel className="mb-3">The problem</SectionLabel>
               <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl lg:text-[2.5rem] lg:leading-tight">
-                Organizations forget
-                <span className="mt-2 block text-slate-500">why decisions were made.</span>
+                Organizations don&apos;t just lose information—
+                <span className="mt-2 block text-slate-500">
+                  they lose the reasoning behind decisions, leading to costly rework
+                  and repeated mistakes.
+                </span>
               </h2>
             </div>
             <ProblemCycleVisual />
@@ -236,9 +241,9 @@ export default function LandingPage() {
               transition={{ duration: 0.3 }}
               className="surface rounded-[var(--radius-xl)] rounded-b-none p-6 sm:rounded-r-none sm:rounded-bl-[var(--radius-xl)] sm:p-8"
             >
-              <p className="mb-5 text-xs font-medium text-slate-500">Traditional AI</p>
+              <p className="mb-5 text-xs font-medium text-slate-500">Without Chronicle</p>
               <ul className="space-y-3">
-                {traditionalAI.map((item) => (
+                {withoutChronicle.map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm text-slate-500">
                     <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden />
                     {item}
@@ -256,9 +261,9 @@ export default function LandingPage() {
               transition={{ duration: 0.3 }}
               className="surface-elevated glow-subtle rounded-[var(--radius-xl)] rounded-t-none border-[rgb(99_102_241/0.15)] p-6 sm:rounded-l-none sm:rounded-tr-[var(--radius-xl)] sm:p-8"
             >
-              <p className="mb-5 text-xs font-medium text-[#818CF8]">Chronicle</p>
+              <p className="mb-5 text-xs font-medium text-[#818CF8]">With Chronicle</p>
               <ul className="space-y-3">
-                {chronicle.map((item) => (
+                {withChronicle.map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm text-slate-300">
                     <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#818CF8]" aria-hidden />
                     {item}
@@ -320,6 +325,22 @@ export default function LandingPage() {
           <SectionLabel className="mb-3">Roadmap</SectionLabel>
           <div className="surface-elevated rounded-[var(--radius-xl)] p-8 sm:p-10">
             <RoadmapTimelineVisual current={roadmapCurrent} future={roadmapFuture} />
+          </div>
+        </section>
+      </Reveal>
+
+      {/* ── Bottom CTA ── */}
+      <Reveal>
+        <section className="mx-auto max-w-3xl px-6 py-32 text-center sm:px-8 sm:py-36">
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Stop repeating yesterday&apos;s mistakes.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg">
+            See how Chronicle transforms organizational memory into better future
+            decisions.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <LinkButton href="/dashboard">Explore Chronicle</LinkButton>
           </div>
         </section>
       </Reveal>

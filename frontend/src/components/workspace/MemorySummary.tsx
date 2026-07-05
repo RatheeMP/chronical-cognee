@@ -2,10 +2,13 @@
 
 import Card from "@/components/ui/Card";
 import { MotionDiv, fadeInUp, transition } from "@/components/ui/motion";
+import Spinner from "@/components/ui/Spinner";
 import type { MemoryItem } from "@/types/memory";
 
 type MemorySummaryProps = {
   items: MemoryItem[];
+  datasetLabel?: string;
+  loading?: boolean;
 };
 
 function countCategory(items: MemoryItem[], patterns: RegExp[]): number {
@@ -14,13 +17,18 @@ function countCategory(items: MemoryItem[], patterns: RegExp[]): number {
   ).length;
 }
 
-export default function MemorySummary({ items }: MemorySummaryProps) {
-  if (items.length === 0) return null;
+export default function MemorySummary({
+  items,
+  datasetLabel,
+  loading = false,
+}: MemorySummaryProps) {
+  if (items.length === 0 && !loading) return null;
 
-  const datasetName = items[0]?.datasetName ?? "main_dataset";
-  const decisions = countCategory(items, [
-    /decision|ADR|Jira/i,
-  ]);
+  const displayDataset =
+    datasetLabel ?? items[0]?.datasetName ?? "main_dataset";
+  const ready = !loading && items.length > 0;
+
+  const decisions = countCategory(items, [/decision|ADR|Jira/i]);
   const meetings = countCategory(items, [
     /meeting|sprint planning|executive summary/i,
   ]);
@@ -37,19 +45,31 @@ export default function MemorySummary({ items }: MemorySummaryProps) {
             </p>
             <p className="mt-2 text-sm text-slate-400">
               Dataset:{" "}
-              <span className="font-medium text-slate-200">{datasetName}</span>
+              <span className="font-medium text-slate-200">{displayDataset}</span>
             </p>
           </div>
-          <span className="badge badge-success">✓ Ready for reasoning</span>
+          {ready ? (
+            <span className="badge badge-success">✓ Ready for reasoning</span>
+          ) : loading ? (
+            <span className="badge">Indexing…</span>
+          ) : null}
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <Stat label="Total Memories" value={items.length} />
-          <Stat label="Decisions" value={decisions} />
-          <Stat label="Meetings" value={meetings} />
-          <Stat label="Architecture Reviews" value={architecture} />
-          <Stat label="Incidents" value={incidents} />
-        </div>
+        {loading && items.length === 0 && (
+          <div className="mt-5">
+            <Spinner showChroni label="Pre-loading organizational memory" />
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Stat label="Total Memories" value={items.length} />
+            <Stat label="Decisions" value={decisions} />
+            <Stat label="Meetings" value={meetings} />
+            <Stat label="Architecture Reviews" value={architecture} />
+            <Stat label="Incidents" value={incidents} />
+          </div>
+        )}
       </Card>
     </MotionDiv>
   );

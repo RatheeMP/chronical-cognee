@@ -7,7 +7,6 @@ import {
   Database,
   FileUp,
   Layers,
-  Sparkles,
 } from "lucide-react";
 
 import Button from "@/components/ui/Button";
@@ -17,17 +16,16 @@ import { MotionDiv, fadeInUp, transition } from "@/components/ui/motion";
 import Panel from "@/components/ui/Panel";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Spinner from "@/components/ui/Spinner";
+import { CLAUDE_MEMORY_PROMPT } from "@/lib/workspaceSampleMemories";
 import {
-  CLAUDE_MEMORY_PROMPT,
-  NOVATECH_SAMPLE_MEMORIES,
-} from "@/lib/workspaceSampleMemories";
-import { rememberMemory } from "@/lib/api";
+  importMemoryTexts,
+  splitMemoryStack,
+} from "@/lib/workspaceMemoryImport";
 import type { MemoryItem } from "@/types/memory";
 
-type TabId = "sample" | "paste" | "upload" | "prompt";
+type TabId = "paste" | "upload" | "prompt";
 
 const TABS: { id: TabId; label: string; icon: typeof Database }[] = [
-  { id: "sample", label: "NovaTech Sample", icon: Sparkles },
   { id: "paste", label: "Paste Memory Stack", icon: Layers },
   { id: "upload", label: "Upload Memory Document", icon: FileUp },
   { id: "prompt", label: "Copy Claude Prompt", icon: ClipboardCopy },
@@ -37,50 +35,8 @@ type MemoryImportPanelProps = {
   onItemsAdded: (items: MemoryItem[]) => void;
 };
 
-function splitMemoryStack(raw: string): string[] {
-  return raw
-    .split(/\n\s*\n/)
-    .map((block) => block.trim())
-    .filter((block) => block.length > 20);
-}
-
-async function rememberTexts(texts: string[]): Promise<{
-  items: MemoryItem[];
-  failures: string[];
-}> {
-  const items: MemoryItem[] = [];
-  const failures: string[] = [];
-
-  for (const text of texts) {
-    try {
-      const response = await rememberMemory(text);
-      if (response.status !== "completed") {
-        failures.push(`Cognee status: ${response.status}`);
-        continue;
-      }
-      const dataId = response.items?.[response.items.length - 1]?.id;
-      if (!dataId) {
-        failures.push("Missing memory id from response");
-        continue;
-      }
-      items.push({
-        id: response.pipeline_run_id ?? crypto.randomUUID(),
-        dataId,
-        datasetName: response.dataset_name ?? "main_dataset",
-        timestamp: new Date(),
-        text,
-        status: response.status,
-      });
-    } catch (err) {
-      failures.push(err instanceof Error ? err.message : "Import failed");
-    }
-  }
-
-  return { items, failures };
-}
-
 export default function MemoryImportPanel({ onItemsAdded }: MemoryImportPanelProps) {
-  const [tab, setTab] = useState<TabId>("sample");
+  const [tab, setTab] = useState<TabId>("paste");
   const [pasteText, setPasteText] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -97,33 +53,23 @@ export default function MemoryImportPanel({ onItemsAdded }: MemoryImportPanelPro
     setSuccess(null);
     setProgress({ current: 0, total: texts.length });
 
-    const allItems: MemoryItem[] = [];
-    const allFailures: string[] = [];
+    const { items, failures } = await importMemoryTexts(texts, (current, total) => {
+      setProgress({ current, total });
+    });
 
-    for (let i = 0; i < texts.length; i += 1) {
-      setProgress({ current: i + 1, total: texts.length });
-      const { items, failures } = await rememberTexts([texts[i]]);
-      allItems.push(...items);
-      allFailures.push(...failures);
+    if (items.length > 0) {
+      onItemsAdded(items);
+      setSuccess(`${label}: ${items.length} memories imported.`);
     }
-
-    if (allItems.length > 0) {
-      onItemsAdded(allItems);
-      setSuccess(`${label}: ${allItems.length} memories imported.`);
+    if (failures.length > 0) {
+      setError(`${failures.length} memories could not be imported. Try again.`);
     }
-    if (allFailures.length > 0) {
-      setError(`${allFailures.length} memories could not be imported. Try again.`);
-    }
-    if (allItems.length === 0 && allFailures.length === 0) {
+    if (items.length === 0 && failures.length === 0) {
       setError("No valid memories found to import.");
     }
 
     setLoading(false);
     setProgress({ current: 0, total: 0 });
-  }
-
-  async function handleSampleLoad() {
-    await runImport(NOVATECH_SAMPLE_MEMORIES, "NovaTech sample");
   }
 
   async function handlePasteImport() {
@@ -178,19 +124,6 @@ export default function MemoryImportPanel({ onItemsAdded }: MemoryImportPanelPro
         </div>
 
         <Card className="mt-4 space-y-4 p-5">
-          {tab === "sample" && (
-            <>
-              <p className="text-sm leading-relaxed text-slate-400">
-                Load a curated NovaTech organizational history — 25 interconnected
-                decisions, meetings, incidents, and reviews ready for reasoning.
-              </p>
-              <Button onClick={() => void handleSampleLoad()} disabled={loading}>
-                <Sparkles className="h-4 w-4" aria-hidden />
-                {loading ? "Importing…" : "Load NovaTech Sample"}
-              </Button>
-            </>
-          )}
-
           {tab === "paste" && (
             <>
               <p className="text-sm text-slate-400">

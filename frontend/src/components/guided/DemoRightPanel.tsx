@@ -5,19 +5,20 @@ import { AlertTriangle, GitBranch, Lightbulb, StickyNote } from "lucide-react";
 import Card from "@/components/ui/Card";
 import DemoMemoryExplorer from "@/components/guided/DemoMemoryExplorer";
 import Spinner from "@/components/ui/Spinner";
-import type { ImpactResponse, ReasoningChain } from "@/lib/api";
+import type { ReasoningChain } from "@/lib/api";
 import {
   impactFallbackRecommendation,
   impactFallbackSummary,
   migrationImpactQuestion,
   proposedDecision,
 } from "@/lib/novaTechDemo";
+import type { StructuredAnswer } from "@/lib/chronicleReasoning";
 
 type DemoRightPanelProps = {
   stepIndex: number;
   chain: ReasoningChain | null;
   chainLoading: boolean;
-  impact: ImpactResponse | null;
+  impactAnswer: StructuredAnswer | null;
   impactLoading: boolean;
 };
 
@@ -25,14 +26,14 @@ export default function DemoRightPanel({
   stepIndex,
   chain,
   chainLoading,
-  impact,
+  impactAnswer,
   impactLoading,
 }: DemoRightPanelProps) {
-  const summary = impact?.summary ?? impactFallbackSummary;
+  const summary = impactAnswer?.summary ?? impactFallbackSummary;
   const recommendation =
-    impact?.potential_impacts?.[0] ?? impactFallbackRecommendation;
+    impactAnswer?.recommendation ?? impactFallbackRecommendation;
   const memories =
-    impact?.supporting_memories?.slice(0, 4) ?? [];
+    impactAnswer?.evidence.map((item) => item.content).slice(0, 4) ?? [];
 
   return (
     <aside className="flex h-full flex-col gap-4 overflow-y-auto border-l border-[rgb(99_102_241/0.12)] bg-[rgb(15_13_35/0.45)] p-5">

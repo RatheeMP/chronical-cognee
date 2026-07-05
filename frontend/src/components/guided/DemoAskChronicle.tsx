@@ -3,9 +3,6 @@
 import { useCallback, useRef, useState } from "react";
 import { MessageSquare, Search } from "lucide-react";
 
-import {
-  DEMO_INTERACTION_TIMEOUT_MS,
-} from "@/components/guided/demoUtils";
 import ChronicleAnswerView, {
   ChronicleEmptyFallback,
   ChronicleErrorFallback,
@@ -13,6 +10,8 @@ import ChronicleAnswerView, {
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { TextInput } from "@/components/ui/Input";
+import ResultSlot from "@/components/ui/ResultSlot";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 import Spinner from "@/components/ui/Spinner";
 import {
   monitorQuestionPattern,
@@ -52,65 +51,65 @@ export default function DemoAskChronicle({
   const [loading, setLoading] = useState(false);
   const inFlightRef = useRef(false);
 
-  const handleAsk = useCallback(async () => {
-    const trimmed = question.trim();
-    if (!trimmed || disabled || inFlightRef.current) return;
+  const runAsk = useCallback(
+    async (trimmed: string) => {
+      if (!trimmed || disabled || loading || inFlightRef.current) return;
 
-    inFlightRef.current = true;
-    setLoading(true);
+      inFlightRef.current = true;
+      setLoading(true);
 
-    try {
-      if (monitorQuestionPattern.test(trimmed)) {
-        onExchange({
-          id: `${Date.now()}`,
-          question: trimmed,
-          plainAnswer: monitorQuestionResponse,
-        });
-        setQuestion("");
-        return;
-      }
-
-      const result = await askChronicleQuestion(trimmed, {
-        timeoutMs: DEMO_INTERACTION_TIMEOUT_MS,
-      });
-
-      if (result.kind === "answer") {
-        onExchange({
-          id: `${Date.now()}`,
-          question: trimmed,
-          structured: result.structured,
-        });
-        if (result.structured.chain.nodes.length > 0) {
-          onExplored(result.structured.chain);
+      try {
+        if (monitorQuestionPattern.test(trimmed)) {
+          onExchange({
+            id: `${Date.now()}`,
+            question: trimmed,
+            plainAnswer: monitorQuestionResponse,
+          });
+          setQuestion("");
+          return;
         }
-        setQuestion("");
-      } else if (result.kind === "empty") {
+
+        const result = await askChronicleQuestion(trimmed);
+
+        if (result.kind === "answer") {
+          onExchange({
+            id: `${Date.now()}`,
+            question: trimmed,
+            structured: result.structured,
+          });
+          if (result.structured.chain.nodes.length > 0) {
+            onExplored(result.structured.chain);
+          }
+          setQuestion("");
+        } else if (result.kind === "empty") {
+          onExchange({
+            id: `${Date.now()}`,
+            question: trimmed,
+            empty: true,
+          });
+          setQuestion("");
+        } else {
+          onExchange({
+            id: `${Date.now()}`,
+            question: trimmed,
+            errorType: result.errorType,
+          });
+          setQuestion("");
+        }
+      } catch {
         onExchange({
           id: `${Date.now()}`,
           question: trimmed,
-          empty: true,
+          errorType: "unavailable",
         });
         setQuestion("");
-      } else {
-        onExchange({
-          id: `${Date.now()}`,
-          question: trimmed,
-          errorType: result.errorType,
-        });
-        setQuestion("");
+      } finally {
+        inFlightRef.current = false;
+        setLoading(false);
       }
-    } catch {
-      onExchange({
-        id: `${Date.now()}`,
-        question: trimmed,
-        errorType: "unavailable",
-      });
-      setQuestion("");
-    } finally {
-      inFlightRef.current = false;
-      setLoading(false);
-    }
-  }, [question, disabled, onExchange, onExplored]);
+    },
+    [disabled, loading, onExchange, onExplored],
+  );
 
   return (
     <div className="space-y-5">
@@ -124,22 +123,31 @@ export default function DemoAskChronicle({
                 </div>
               </div>
 
-              {item.structured && <ChronicleAnswerView answer={item.structured} />}
-
-              {item.plainAnswer && (
-                <Card className="surface-elevated border-[rgb(99_102_241/0.2)] p-5" glow>
-                  <span className="badge badge-cyan">Chronicle</span>
-                  <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-100">
-                    {item.plainAnswer}
-                  </p>
-                </Card>
-              )}
-
-              {item.empty && <ChronicleEmptyFallback />}
-
-              {item.errorType && (
-                <ChronicleErrorFallback message={errorMessage(item.errorType)} />
-              )}
+              <ResultSlot minHeight={120}>
+                {item.structured ? (
+                  <ChronicleAnswerView
+                    answer={item.structured}
+                    variant="workspace"
+                  />
+                ) : item.plainAnswer ? (
+                  <Card
+                    className="surface-elevated border-[rgb(99_102_241/0.2)] p-5"
+                    glow
+                  >
+                    <span className="badge badge-cyan">Chronicle</span>
+                    <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-100">
+                      {item.plainAnswer}
+                    </p>
+                  </Card>
+                ) : item.empty ? (
+                  <ChronicleEmptyFallback />
+                ) : item.errorType ? (
+                  <ChronicleErrorFallback
+                    message={errorMessage(item.errorType)}
+                    onRetry={() => void runAsk(item.question)}
+                  />
+                ) : null}
+              </ResultSlot>
             </div>
           ))}
         </div>
@@ -159,11 +167,11 @@ export default function DemoAskChronicle({
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.nativeEvent.isComposing) {
               e.preventDefault();
-              void handleAsk();
+              void runAsk(question.trim());
             }
           }}
           placeholder="Ask anything about NovaTech's decisions…"
-          disabled={disabled}
+          disabled={disabled || loading}
           aria-label="Your question"
         />
 
@@ -173,7 +181,7 @@ export default function DemoAskChronicle({
               key={chip}
               type="button"
               onClick={() => setQuestion(chip)}
-              disabled={disabled}
+              disabled={disabled || loading}
               className="memory-chip text-left text-xs transition-colors duration-300 hover:border-[rgb(99_102_241/0.35)] hover:bg-[rgb(99_102_241/0.08)] disabled:opacity-50"
             >
               {chip}
@@ -182,17 +190,22 @@ export default function DemoAskChronicle({
         </div>
 
         <Button
-          onClick={() => void handleAsk()}
+          onClick={() => void runAsk(question.trim())}
           disabled={disabled || !question.trim() || loading}
         >
           <Search className="h-4 w-4" aria-hidden />
           {loading ? "Reasoning…" : "Ask Chronicle"}
         </Button>
-
-        {loading && (
-          <Spinner showChroni label="Reasoning over organizational memory" />
-        )}
       </Card>
+
+      {loading && (
+        <ResultSlot minHeight={120}>
+          <div className="space-y-4">
+            <Spinner showChroni label="Reasoning over organizational memory" />
+            <SkeletonCard label="Reasoning over organizational memory" />
+          </div>
+        </ResultSlot>
+      )}
     </div>
   );
 }

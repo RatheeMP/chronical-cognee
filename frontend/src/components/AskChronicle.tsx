@@ -76,14 +76,12 @@ export default function AskChronicle({
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-[#818CF8]" aria-hidden />
-          <h2 className="text-lg font-semibold tracking-tight text-slate-100 sm:text-xl">
-            Ask Chronicle
-          </h2>
+          <h2 className="section-heading">Ask Chronicle</h2>
           <span className="badge badge-cyan">Primary</span>
         </div>
 
         <Card className="surface-elevated content-stable space-y-5 p-5 sm:p-6" glow>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-300">
             Ask unrestricted questions. Chronicle reasons only from imported
             organizational memory.
           </p>
@@ -108,7 +106,7 @@ export default function AskChronicle({
                 type="button"
                 onClick={() => setQuestion(chip)}
                 disabled={loading}
-                className="memory-chip text-left text-xs transition-colors duration-300 hover:border-[rgb(99_102_241/0.35)] hover:bg-[rgb(99_102_241/0.08)] disabled:opacity-50"
+                className="focus-ring memory-chip text-left text-xs transition-colors duration-300 hover:border-[rgb(99_102_241/0.35)] hover:bg-[rgb(99_102_241/0.08)] disabled:opacity-50"
               >
                 {chip}
               </button>

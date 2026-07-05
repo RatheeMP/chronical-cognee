@@ -48,3 +48,5 @@ Topics to interconnect:
 Output only the memory paragraphs — no preamble.`;
 
 export const DATASET_LABEL = "main_dataset";
+
+export const NOVATECH_DATASET_DISPLAY_NAME = "NovaTech (Pre-loaded)";

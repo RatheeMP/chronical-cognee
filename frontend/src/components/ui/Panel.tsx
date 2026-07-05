@@ -12,9 +12,10 @@ type PanelProps = {
 
 const tierStyles: Record<PanelTier, string> = {
   primary:
-    "text-xl sm:text-2xl font-semibold tracking-tight text-slate-50",
-  secondary: "text-lg font-semibold tracking-tight text-slate-100",
-  tertiary: "text-base font-medium text-slate-200",
+    "text-[1.375rem] sm:text-[1.625rem] font-semibold tracking-tight text-slate-50",
+  secondary:
+    "text-[1.1875rem] sm:text-[1.3125rem] font-semibold tracking-tight text-slate-50",
+  tertiary: "text-base font-medium text-slate-100",
 };
 
 export default function Panel({
@@ -25,7 +26,7 @@ export default function Panel({
   children,
 }: PanelProps) {
   return (
-    <section className="animate-fade-in space-y-6">
+    <section className="animate-fade-in space-y-7">
       <div className="flex items-start gap-4">
         {icon && (
           <div
@@ -41,13 +42,13 @@ export default function Panel({
         <div className="min-w-0 space-y-2">
           <h2 className={tierStyles[tier]}>{title}</h2>
           {description && (
-            <p className="max-w-xl text-sm leading-relaxed text-slate-400">
+            <p className="max-w-xl text-sm leading-relaxed text-slate-300">
               {description}
             </p>
           )}
         </div>
       </div>
-      <div className="space-y-5">{children}</div>
+      <div className="space-y-6">{children}</div>
     </section>
   );
 }

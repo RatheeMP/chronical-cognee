@@ -9,11 +9,17 @@ import {
 } from "lucide-react";
 
 import DemoAskChronicle, { type AskExchange } from "@/components/guided/DemoAskChronicle";
-import { DemoImpactResults } from "@/components/guided/DemoResults";
+import ChronicleAnswerView, {
+  ChronicleEmptyFallback,
+  ChronicleErrorFallback,
+} from "@/components/ChronicleAnswerView";
 import Card from "@/components/ui/Card";
 import LinkButton from "@/components/ui/LinkButton";
+import ResultSlot from "@/components/ui/ResultSlot";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 import Spinner from "@/components/ui/Spinner";
-import type { ImpactResponse, ReasoningChain } from "@/lib/api";
+import type { ReasoningChain } from "@/lib/api";
+import { errorMessage, type StructuredAnswer } from "@/lib/chronicleReasoning";
 import {
   hookAlert,
   novaTechEvidence,
@@ -22,9 +28,10 @@ import {
 
 type DemoCenterWorkspaceProps = {
   stepIndex: number;
-  impact: ImpactResponse | null;
+  impactAnswer: StructuredAnswer | null;
   impactLoading: boolean;
-  impactError: string | null;
+  impactEmpty: boolean;
+  impactErrorType: "offline" | "timeout" | "unavailable" | null;
   chain: ReasoningChain | null;
   chainLoading: boolean;
   onRetryImpact: () => void;
@@ -36,9 +43,10 @@ type DemoCenterWorkspaceProps = {
 
 export default function DemoCenterWorkspace({
   stepIndex,
-  impact,
+  impactAnswer,
   impactLoading,
-  impactError,
+  impactEmpty,
+  impactErrorType,
   chain,
   chainLoading,
   onRetryImpact,
@@ -65,9 +73,10 @@ export default function DemoCenterWorkspace({
       {stepIndex === 1 && <EvidenceStep chainLoading={chainLoading} chain={chain} />}
       {stepIndex === 2 && (
         <ImpactStep
-          impact={impact}
+          impactAnswer={impactAnswer}
           loading={impactLoading}
-          error={impactError}
+          empty={impactEmpty}
+          errorType={impactErrorType}
           onRetry={onRetryImpact}
         />
       )}
@@ -224,14 +233,16 @@ function EvidenceStep({
 }
 
 function ImpactStep({
-  impact,
+  impactAnswer,
   loading,
-  error,
+  empty,
+  errorType,
   onRetry,
 }: {
-  impact: ImpactResponse | null;
+  impactAnswer: StructuredAnswer | null;
   loading: boolean;
-  error: string | null;
+  empty: boolean;
+  errorType: "offline" | "timeout" | "unavailable" | null;
   onRetry: () => void;
 }) {
   return (
@@ -250,42 +261,29 @@ function ImpactStep({
         </p>
       </Card>
 
-      {loading && (
-        <Spinner showChroni label="Analyzing decision impact" />
-      )}
-
-      {error && !loading && (
-        <Card className="p-5">
-          <p className="text-sm text-amber-400/90">{error}</p>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="mt-3 text-sm text-[#818CF8] transition-colors hover:text-[#A5B4FC]"
-          >
-            Retry analysis
-          </button>
-        </Card>
-      )}
-
-      {impact && !loading && (
-        <>
-          <DemoImpactResults result={impact} />
-          <Card className="border-[rgb(99_102_241/0.2)] bg-[rgb(99_102_241/0.06)] p-5">
-            <span className="badge">Recommendation</span>
-            <p className="mt-3 text-sm font-medium leading-relaxed text-slate-200">
-              Review the previous decision before proceeding.
+      <ResultSlot minHeight={120}>
+        {loading ? (
+          <div className="space-y-4">
+            <Spinner showChroni label="Analyzing decision impact" />
+            <SkeletonCard label="Analyzing decision impact" />
+          </div>
+        ) : errorType ? (
+          <ChronicleErrorFallback
+            message={errorMessage(errorType)}
+            onRetry={onRetry}
+          />
+        ) : empty ? (
+          <ChronicleEmptyFallback onRetry={onRetry} />
+        ) : impactAnswer ? (
+          <ChronicleAnswerView answer={impactAnswer} variant="workspace" />
+        ) : (
+          <Card className="p-5">
+            <p className="text-sm text-slate-400">
+              Impact analysis will load when you reach this step.
             </p>
           </Card>
-        </>
-      )}
-
-      {!impact && !loading && !error && (
-        <Card className="p-5">
-          <p className="text-sm text-slate-400">
-            Impact analysis will load when you reach this step.
-          </p>
-        </Card>
-      )}
+        )}
+      </ResultSlot>
     </div>
   );
 }

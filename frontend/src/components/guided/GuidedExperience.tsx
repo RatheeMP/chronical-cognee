@@ -12,7 +12,6 @@ import {
 import type { AskExchange } from "@/components/guided/DemoAskChronicle";
 import {
   DEMO_INTERACTION_TIMEOUT_MS,
-  isInteractionTimeout,
   withInteractionTimeout,
 } from "@/components/guided/demoUtils";
 import DemoCenterWorkspace from "@/components/guided/DemoCenterWorkspace";
@@ -21,17 +20,18 @@ import DemoRightPanel from "@/components/guided/DemoRightPanel";
 import ChroniAvatar from "@/components/chroni/ChroniAvatar";
 import Button from "@/components/ui/Button";
 import {
-  analyzeImpact,
   exploreReasoning,
   improveMemory,
   rememberMemory,
-  type ImpactResponse,
   type ReasoningChain,
 } from "@/lib/api";
 import {
+  askChronicleQuestion,
+  type StructuredAnswer,
+} from "@/lib/chronicleReasoning";
+import {
   DEMO_STEPS,
   demoFooterCopy,
-  demoGracefulFallback,
   migrationImpactQuestion,
   novaTechMemoriesToSeed,
   NOVA_TECH,
@@ -53,9 +53,12 @@ export default function GuidedExperience() {
   const [seeding, setSeeding] = useState(true);
   const [seeded, setSeeded] = useState(false);
 
-  const [impact, setImpact] = useState<ImpactResponse | null>(null);
+  const [impactAnswer, setImpactAnswer] = useState<StructuredAnswer | null>(null);
   const [impactLoading, setImpactLoading] = useState(false);
-  const [impactError, setImpactError] = useState<string | null>(null);
+  const [impactEmpty, setImpactEmpty] = useState(false);
+  const [impactErrorType, setImpactErrorType] = useState<
+    "offline" | "timeout" | "unavailable" | null
+  >(null);
 
   const [chain, setChain] = useState<ReasoningChain | null>(null);
   const [chainLoading, setChainLoading] = useState(false);
@@ -83,8 +86,9 @@ export default function GuidedExperience() {
 
   const resetDemoState = useCallback(() => {
     setStepIndex(0);
-    setImpact(null);
-    setImpactError(null);
+    setImpactAnswer(null);
+    setImpactEmpty(false);
+    setImpactErrorType(null);
     setChain(null);
     setAskExchanges([]);
     impactFetched.current = false;
@@ -99,23 +103,26 @@ export default function GuidedExperience() {
     if (impactFetched.current || impactInFlight.current) return;
     impactInFlight.current = true;
     setImpactLoading(true);
-    setImpactError(null);
+    setImpactErrorType(null);
+    setImpactEmpty(false);
+    setImpactAnswer(null);
     try {
-      const result = await withInteractionTimeout(
-        analyzeImpact(migrationImpactQuestion),
-        DEMO_INTERACTION_TIMEOUT_MS,
-      );
-      setImpact(result);
-      if (result.reasoning_chain?.nodes?.length) {
-        setChain(result.reasoning_chain);
+      const result = await askChronicleQuestion(migrationImpactQuestion);
+
+      if (result.kind === "answer") {
+        setImpactAnswer(result.structured);
+        if (result.structured.chain.nodes.length > 0) {
+          setChain(result.structured.chain);
+        }
+        impactFetched.current = true;
+      } else if (result.kind === "empty") {
+        setImpactEmpty(true);
+        impactFetched.current = true;
+      } else {
+        setImpactErrorType(result.errorType);
       }
-      impactFetched.current = true;
-    } catch (err) {
-      setImpactError(
-        isInteractionTimeout(err)
-          ? "Impact analysis is taking longer than expected."
-          : demoGracefulFallback("impact"),
-      );
+    } catch {
+      setImpactErrorType("unavailable");
     } finally {
       impactInFlight.current = false;
       setImpactLoading(false);
@@ -257,9 +264,10 @@ export default function GuidedExperience() {
 
         <DemoCenterWorkspace
           stepIndex={stepIndex}
-          impact={impact}
+          impactAnswer={impactAnswer}
           impactLoading={impactLoading}
-          impactError={impactError}
+          impactEmpty={impactEmpty}
+          impactErrorType={impactErrorType}
           chain={chain}
           chainLoading={chainLoading}
           onRetryImpact={() => {
@@ -280,7 +288,7 @@ export default function GuidedExperience() {
             stepIndex={stepIndex}
             chain={chain}
             chainLoading={chainLoading}
-            impact={impact}
+            impactAnswer={impactAnswer}
             impactLoading={impactLoading}
           />
         </div>

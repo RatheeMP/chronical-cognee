@@ -6,39 +6,95 @@ type ChroniAvatarProps = {
 };
 
 const sizes = {
-  sm: "h-9 w-9",
-  md: "h-14 w-14",
-  lg: "h-[72px] w-[72px]",
+  sm: {
+    box: "h-11 w-11",
+    halo: "-inset-[22%]",
+    ring: "-inset-[10%]",
+    eye: "h-[9%] w-[9%]",
+    gap: "gap-[16%]",
+    pt: "pt-[7%]",
+    smile: "bottom-[24%] w-[16%] h-[4%]",
+  },
+  md: {
+    box: "h-16 w-16",
+    halo: "-inset-[24%]",
+    ring: "-inset-[12%]",
+    eye: "h-[9%] w-[9%]",
+    gap: "gap-[17%]",
+    pt: "pt-[8%]",
+    smile: "bottom-[23%] w-[17%] h-[4%]",
+  },
+  lg: {
+    box: "h-24 w-24",
+    halo: "-inset-[26%]",
+    ring: "-inset-[14%]",
+    eye: "h-[8.5%] w-[8.5%]",
+    gap: "gap-[18%]",
+    pt: "pt-[8%]",
+    smile: "bottom-[22%] w-[18%] h-[3.5%]",
+  },
 };
 
 export default function ChroniAvatar({
   size = "md",
   interactive = true,
 }: ChroniAvatarProps) {
+  const s = sizes[size];
+
   return (
     <div
-      className={`relative shrink-0 ${sizes[size]} ${
+      className={`relative shrink-0 ${s.box} chroni-float ${
         interactive
-          ? "chroni-float transition-transform duration-500 hover:scale-[1.04]"
+          ? "cursor-default transition-transform duration-500 ease-out hover:scale-[1.05]"
           : ""
       }`}
       aria-hidden
     >
-      {/* Soft ambient glow */}
+      {/* Indigo ambient halo */}
       <div
-        className={`${sizes[size]} chroni-glow absolute inset-0 rounded-[24%] bg-[#6366F1] opacity-40 blur-md`}
+        className={`absolute ${s.halo} rounded-full bg-[#4338CA] opacity-35 blur-2xl chroni-halo`}
       />
-      {/* Body */}
+
+      {/* Soft outer ring */}
       <div
-        className={`${sizes[size]} chroni-breathe absolute inset-0 rounded-[24%] bg-gradient-to-br from-[#6366F1] via-[#7C3AED] to-[#4338CA] shadow-[0_4px_20px_rgb(99_102_241/0.3)]`}
+        className={`absolute ${s.ring} rounded-[30%] border border-[rgb(99_102_241/0.35)] bg-[rgb(99_102_241/0.06)] chroni-glow backdrop-blur-[2px]`}
       />
-      {/* Eyes */}
-      <div className="absolute inset-0 flex items-center justify-center gap-[18%] pt-[8%]">
-        <span className="chroni-eye h-[10%] w-[10%] rounded-full bg-white/95 shadow-[0_0_4px_rgb(255_255_255/0.3)]" />
-        <span className="chroni-eye h-[10%] w-[10%] rounded-full bg-white/95 shadow-[0_0_4px_rgb(255_255_255/0.3)]" />
+
+      {/* Breathing body */}
+      <div className={`absolute inset-0 chroni-breathe ${s.box}`}>
+        {/* Glass shell */}
+        <div
+          className={`chroni-shell absolute inset-0 overflow-hidden rounded-[28%] backdrop-blur-sm`}
+        >
+          {/* Core gradient */}
+          <div
+            className={`absolute inset-[5%] rounded-[24%] bg-gradient-to-br from-[#6366F1] via-[#7C3AED] to-[#312E81]`}
+          />
+
+          {/* Specular highlight */}
+          <div className="pointer-events-none absolute left-[10%] top-[8%] h-[38%] w-[48%] rounded-full bg-gradient-to-br from-white/30 to-transparent blur-[3px]" />
+
+          {/* Inner depth */}
+          <div className="pointer-events-none absolute inset-0 rounded-[28%] bg-gradient-to-b from-white/[0.07] via-transparent to-[rgb(15_13_35/0.25)]" />
+        </div>
+
+        {/* Face */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center ${s.gap} ${s.pt}`}
+        >
+          <span
+            className={`chroni-eye ${s.eye} rounded-full bg-white/95 shadow-[0_0_6px_rgb(255_255_255/0.35)]`}
+          />
+          <span
+            className={`chroni-eye ${s.eye} rounded-full bg-white/95 shadow-[0_0_6px_rgb(255_255_255/0.35)]`}
+          />
+        </div>
+
+        {/* Subtle smile arc */}
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 rounded-full border-b border-white/30 ${s.smile}`}
+        />
       </div>
-      {/* Smile */}
-      <div className="absolute bottom-[22%] left-1/2 h-[5%] w-[18%] -translate-x-1/2 rounded-full bg-white/25" />
     </div>
   );
 }
