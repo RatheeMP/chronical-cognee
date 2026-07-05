@@ -27,6 +27,7 @@ import {
 } from "@/lib/api";
 import {
   askChronicleQuestion,
+  GUIDED_DEMO_CONTEXT,
   type StructuredAnswer,
 } from "@/lib/chronicleReasoning";
 import {
@@ -110,7 +111,7 @@ export default function GuidedExperience() {
     setImpactAnswer(null);
     try {
       const result = await askChronicleQuestion(migrationImpactQuestion, {
-        guidedDemo: true,
+        context: GUIDED_DEMO_CONTEXT,
       });
 
       if (result.kind === "answer") {

@@ -21,6 +21,7 @@ import {
 import {
   askChronicleQuestion,
   errorMessage,
+  GUIDED_DEMO_CONTEXT,
   type StructuredAnswer,
 } from "@/lib/chronicleReasoning";
 import type { ReasoningChain } from "@/lib/api";
@@ -69,7 +70,9 @@ export default function DemoAskChronicle({
           return;
         }
 
-        const result = await askChronicleQuestion(trimmed, { guidedDemo: true });
+        const result = await askChronicleQuestion(trimmed, {
+          context: GUIDED_DEMO_CONTEXT,
+        });
 
         if (result.kind === "answer") {
           onExchange({

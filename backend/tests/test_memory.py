@@ -9,12 +9,12 @@ client = TestClient(app)
 
 
 def test_remember_rejects_empty_text():
-    response = client.post("/memory/remember", json={"text": ""})
+    response = client.post("/api/v1/memory/remember", json={"text": ""})
     assert response.status_code == 422
 
 
 @patch(
-    "app.api.memory.memory_service.remember_text",
+    "app.api.v1.memory.memory_service.remember_text",
     new_callable=AsyncMock,
 )
 def test_remember_returns_cognee_response(mock_remember):
@@ -26,7 +26,7 @@ def test_remember_returns_cognee_response(mock_remember):
     mock_remember.return_value = cognee_response
 
     response = client.post(
-        "/memory/remember",
+        "/api/v1/memory/remember",
         json={"text": "Chronicle milestone three test memory."},
     )
 
@@ -36,7 +36,7 @@ def test_remember_returns_cognee_response(mock_remember):
 
 
 @patch(
-    "app.api.memory.memory_service.recall_query",
+    "app.api.v1.memory.memory_service.recall_query",
     new_callable=AsyncMock,
 )
 def test_recall_returns_cognee_response(mock_recall):
@@ -51,7 +51,7 @@ def test_recall_returns_cognee_response(mock_recall):
     mock_recall.return_value = cognee_response
 
     response = client.post(
-        "/memory/recall",
+        "/api/v1/memory/recall",
         json={"query": "Why did we delay Feature X?"},
     )
 
@@ -61,12 +61,12 @@ def test_recall_returns_cognee_response(mock_recall):
 
 
 def test_recall_rejects_empty_query():
-    response = client.post("/memory/recall", json={"query": ""})
+    response = client.post("/api/v1/memory/recall", json={"query": ""})
     assert response.status_code == 422
 
 
 @patch(
-    "app.api.memory.impact_service.analyze_impact",
+    "app.api.v1.memory.impact_service.analyze_impact",
     new_callable=AsyncMock,
 )
 def test_impact_returns_structured_response(mock_impact):
@@ -106,7 +106,7 @@ def test_impact_returns_structured_response(mock_impact):
     mock_impact.return_value = impact_response
 
     response = client.post(
-        "/memory/impact",
+        "/api/v1/memory/impact",
         json={"question": "What happens if we restart Enterprise SSO today?"},
     )
 
@@ -114,15 +114,15 @@ def test_impact_returns_structured_response(mock_impact):
     assert response.json() == impact_response
     mock_impact.assert_awaited_once_with(
         "What happens if we restart Enterprise SSO today?",
-        guided_demo=False,
+        retrieval_profile="full",
     )
 
 
 @patch(
-    "app.api.memory.impact_service.analyze_impact",
+    "app.api.v1.memory.impact_service.analyze_impact",
     new_callable=AsyncMock,
 )
-def test_impact_uses_guided_demo_retrieval_profile(mock_impact):
+def test_impact_uses_demo_retrieval_profile(mock_impact):
     mock_impact.return_value = {
         "summary": "Demo response",
         "supporting_memories": [],
@@ -132,25 +132,30 @@ def test_impact_uses_guided_demo_retrieval_profile(mock_impact):
     }
 
     response = client.post(
-        "/memory/impact",
-        json={"question": "What happens if we restart Enterprise SSO today?"},
-        headers={"X-Chronicle-Context": "guided-demo"},
+        "/api/v1/memory/impact",
+        json={
+            "question": "What happens if we restart Enterprise SSO today?",
+            "retrieval_profile": "demo",
+        },
     )
 
     assert response.status_code == 200
     mock_impact.assert_awaited_once_with(
         "What happens if we restart Enterprise SSO today?",
-        guided_demo=True,
+        retrieval_profile="demo",
     )
 
 
 def test_impact_rejects_empty_question():
-    response = client.post("/memory/impact", json={"question": ""})
+    response = client.post("/api/v1/memory/impact", json={"question": ""})
     assert response.status_code == 422
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert body["error"]["field_errors"]
 
 
 @patch(
-    "app.api.memory.reasoning_service.build_explorer_chain",
+    "app.api.v1.memory.reasoning_service.build_explorer_chain",
     new_callable=AsyncMock,
 )
 def test_explore_returns_reasoning_chain(mock_explore):
@@ -185,7 +190,7 @@ def test_explore_returns_reasoning_chain(mock_explore):
     mock_explore.return_value = explore_response
 
     response = client.post(
-        "/memory/explore",
+        "/api/v1/memory/explore",
         json={"query": "Why did we postpone Enterprise SSO?"},
     )
 
@@ -245,7 +250,7 @@ def test_build_reasoning_chain_adds_question_node():
 
 
 @patch(
-    "app.api.memory.memory_service.improve_dataset",
+    "app.api.v1.memory.memory_service.improve_dataset",
     new_callable=AsyncMock,
 )
 def test_improve_returns_cognee_response(mock_improve):
@@ -257,7 +262,7 @@ def test_improve_returns_cognee_response(mock_improve):
     mock_improve.return_value = cognee_response
 
     response = client.post(
-        "/memory/improve",
+        "/api/v1/memory/improve",
         json={"dataset_name": "main_dataset"},
     )
 
@@ -270,7 +275,7 @@ def test_improve_returns_cognee_response(mock_improve):
 
 
 @patch(
-    "app.api.memory.memory_service.improve_dataset",
+    "app.api.v1.memory.memory_service.improve_dataset",
     new_callable=AsyncMock,
 )
 def test_improve_passes_optional_instructions(mock_improve):
@@ -278,7 +283,7 @@ def test_improve_passes_optional_instructions(mock_improve):
     mock_improve.return_value = cognee_response
 
     response = client.post(
-        "/memory/improve",
+        "/api/v1/memory/improve",
         json={
             "dataset_name": "main_dataset",
             "instructions": "Reconcile Enterprise SSO status with latest update.",
@@ -293,12 +298,12 @@ def test_improve_passes_optional_instructions(mock_improve):
 
 
 def test_improve_rejects_empty_dataset_name():
-    response = client.post("/memory/improve", json={"dataset_name": ""})
+    response = client.post("/api/v1/memory/improve", json={"dataset_name": ""})
     assert response.status_code == 422
 
 
 @patch(
-    "app.api.memory.memory_service.forget_memory",
+    "app.api.v1.memory.memory_service.forget_memory",
     new_callable=AsyncMock,
 )
 def test_forget_returns_cognee_response(mock_forget):
@@ -310,7 +315,7 @@ def test_forget_returns_cognee_response(mock_forget):
     mock_forget.return_value = cognee_response
 
     response = client.post(
-        "/memory/forget",
+        "/api/v1/memory/forget",
         json={
             "dataset_name": "main_dataset",
             "data_id": "8f11bed0-ef6a-5e09-ab94-b67fedb8b79a",
@@ -326,7 +331,7 @@ def test_forget_returns_cognee_response(mock_forget):
 
 
 @patch(
-    "app.api.memory.memory_service.forget_memory",
+    "app.api.v1.memory.memory_service.forget_memory",
     new_callable=AsyncMock,
 )
 def test_forget_not_found_returns_404(mock_forget):
@@ -341,7 +346,7 @@ def test_forget_not_found_returns_404(mock_forget):
     )
 
     response = client.post(
-        "/memory/forget",
+        "/api/v1/memory/forget",
         json={
             "dataset_name": "main_dataset",
             "data_id": "00000000-0000-0000-0000-000000000000",
@@ -349,12 +354,14 @@ def test_forget_not_found_returns_404(mock_forget):
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Memory not found."
+    body = response.json()
+    assert body["error"]["code"] == "NOT_FOUND"
+    assert body["error"]["message"] == "Memory not found."
 
 
 def test_forget_rejects_empty_fields():
     response = client.post(
-        "/memory/forget",
+        "/api/v1/memory/forget",
         json={"dataset_name": "", "data_id": ""},
     )
     assert response.status_code == 422

@@ -1,5 +1,9 @@
 import {
-  analyzeImpact,
+  analyzeImpactWithTimeout,
+  GUIDED_DEMO_CONTEXT,
+  WORKSPACE_CONTEXT,
+  isChronicleApiError,
+  type ChronicleRequestContext,
   type ImpactResponse,
   type ReasoningChain,
 } from "@/lib/api";
@@ -35,6 +39,7 @@ export type AskChronicleEmpty = {
 export type AskChronicleError = {
   kind: "error";
   errorType: "offline" | "timeout" | "unavailable";
+  message?: string;
 };
 
 export type AskChronicleResult =
@@ -166,31 +171,12 @@ function formatPlainText(answer: StructuredAnswer): string {
   return parts.join("\n");
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error("timeout")), ms);
-  });
+export function errorMessage(
+  errorType: AskChronicleError["errorType"],
+  detail?: string,
+): string {
+  if (detail?.trim()) return detail.trim();
 
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-}
-
-function isTimeoutError(err: unknown): boolean {
-  return err instanceof Error && /timeout/i.test(err.message);
-}
-
-function isOfflineError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  return /fetch|network|502|503|504|failed to fetch|cognee cloud request failed/i.test(
-    err.message,
-  );
-}
-
-export function errorMessage(errorType: AskChronicleError["errorType"]): string {
   switch (errorType) {
     case "offline":
     case "unavailable":
@@ -202,21 +188,54 @@ export function errorMessage(errorType: AskChronicleError["errorType"]): string 
   }
 }
 
+function classifyApiError(err: unknown): AskChronicleError {
+  if (isChronicleApiError(err)) {
+    if (err.code === "TIMEOUT") {
+      return { kind: "error", errorType: "timeout", message: err.message };
+    }
+    if (err.code === "NETWORK_ERROR") {
+      return { kind: "error", errorType: "offline", message: err.message };
+    }
+    if (err.code === "UPSTREAM_ERROR" || err.status === 502 || err.status === 503) {
+      return { kind: "error", errorType: "offline", message: err.message };
+    }
+    return { kind: "error", errorType: "unavailable", message: err.message };
+  }
+
+  if (err instanceof Error && /timeout/i.test(err.message)) {
+    return { kind: "error", errorType: "timeout", message: err.message };
+  }
+
+  return {
+    kind: "error",
+    errorType: "unavailable",
+    message: err instanceof Error ? err.message : undefined,
+  };
+}
+
 /** Thin client adapter — all reasoning runs in the backend unified pipeline. */
 export async function askChronicleQuestion(
   question: string,
-  options?: { timeoutMs?: number; guidedDemo?: boolean },
+  options?: {
+    timeoutMs?: number;
+    context?: ChronicleRequestContext;
+    /** @deprecated Use `context: GUIDED_DEMO_CONTEXT` instead. */
+    guidedDemo?: boolean;
+  },
 ): Promise<AskChronicleResult> {
   const trimmed = question.trim();
   if (!trimmed) return { kind: "empty" };
 
   const timeoutMs = options?.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const context =
+    options?.context ??
+    (options?.guidedDemo ? GUIDED_DEMO_CONTEXT : WORKSPACE_CONTEXT);
 
   try {
-    const impact = await withTimeout(
-      analyzeImpact(trimmed, { guidedDemo: options?.guidedDemo }),
+    const impact = await analyzeImpactWithTimeout(trimmed, {
       timeoutMs,
-    );
+      context,
+    });
 
     if (isEmptyImpact(impact)) {
       return { kind: "empty" };
@@ -229,8 +248,8 @@ export async function askChronicleQuestion(
       plainText: formatPlainText(structured),
     };
   } catch (err) {
-    if (isTimeoutError(err)) return { kind: "error", errorType: "timeout" };
-    if (isOfflineError(err)) return { kind: "error", errorType: "offline" };
-    return { kind: "error", errorType: "unavailable" };
+    return classifyApiError(err);
   }
 }
+
+export { GUIDED_DEMO_CONTEXT, WORKSPACE_CONTEXT };
