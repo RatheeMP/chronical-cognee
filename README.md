@@ -121,3 +121,14 @@ Response: the raw JSON object returned by Cognee Cloud (`POST /api/v1/remember`)
 - Frontend calls the backend via `NEXT_PUBLIC_API_URL`
 - CORS allows `http://localhost:3000`
 - Cognee Cloud is called via REST (`X-Api-Key`); recall/improve/forget are not implemented yet
+
+# Chronicle
+
+## 🚀 Live Deployed link
+https://chronical-cognee.vercel.app
+
+## 🎥 Demo Video
+https://youtu.be/YOUR_VIDEO_LINK
+
+## 📖 Overview
+Chronicle is a Decision Intelligence Engine powered by Cognee Cloud that remembers the reasoning behind technical and product decisions, enabling contextual recall, impact analysis, and connected memory exploration.
