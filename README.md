@@ -7,8 +7,7 @@ https://chronical-cognee.vercel.app
 https://youtu.be/YOUR_VIDEO_LINK
 
 ## 📖 Overview
-Chronicle is a Decision Intelligence Engine powered by Cognee Cloud that remembers the reasoning behind technical and product decisions, enabling contextual recall, impact analysis, and connected memory exploration.
-
+Chronicle is a Decision Intelligence Engine that uses your organization's past to protect its future. It transforms scattered project history into a connected knowledge graph, allowing you to ask future-facing questions and get answers backed by your team's actual historical data.
 
 ## Stack
 
